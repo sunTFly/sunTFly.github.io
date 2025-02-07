@@ -16,19 +16,17 @@
   <meta name="author" content="sunTFly">
   <meta name="keywords" content="">
   
-    <meta name="description" content="RGB相机动捕系列：相机标定（一、特征提取）一、概述 在动捕行业中，动捕系统一般采用红外相机捕捉演员身上的mark红外反光点，如vicon、OptiTrack等相机，相机厂商会有配对的相机标定系统。但是红外光学动捕有时会有一定的局限性，比如对于手指的捕捉效果很差，所以有一套RGB相机动捕是很有必要的。但是市面上大多数RGB工业相机并没有配套的相机阵标定系统，本系列文章将阐述RGB相机动捕的整个系统">
+    <meta name="description" content="@TOC RGB相机动捕系列：相机标定（三.一、暴力重建）一、概述之前一篇文章中写了一篇 RGB相机动捕系列：相机标定（三.一、暴力重建），其中 2.3中提到了红点三维重建，本篇将详细介绍一下红点重建的具体过程。 二、暴力匹配2.1相机匹配遍历所有相机，对相机进行两两相互匹配。由于已经对相机进行标定，可根据相机参数求出两相机的交会角。去除交会角过小和过大的匹配对。因为当交会角过小时，会导致重建深度">
 <meta property="og:type" content="article">
 <meta property="og:title" content="sunTFly HomePage">
-<meta property="og:url" content="http://example.com/2025/02/07/RGB%E7%9B%B8%E6%9C%BA%E5%8A%A8%E6%8D%95%E7%B3%BB%E5%88%97%EF%BC%9A%E7%9B%B8%E6%9C%BA%E6%A0%87%E5%AE%9A%EF%BC%88%E4%B8%80%E3%80%81%E7%89%B9%E5%BE%81%E6%8F%90%E5%8F%96%EF%BC%89/index.html">
+<meta property="og:url" content="http://example.com/2025/02/07/%E7%9B%B8%E6%9C%BA%E6%A0%87%E5%AE%9A%EF%BC%88%E4%B8%89.%E4%B8%80%E3%80%81%E6%9A%B4%E5%8A%9B%E9%87%8D%E5%BB%BA)/index.html">
 <meta property="og:site_name" content="sunTFly HomePage">
-<meta property="og:description" content="RGB相机动捕系列：相机标定（一、特征提取）一、概述 在动捕行业中，动捕系统一般采用红外相机捕捉演员身上的mark红外反光点，如vicon、OptiTrack等相机，相机厂商会有配对的相机标定系统。但是红外光学动捕有时会有一定的局限性，比如对于手指的捕捉效果很差，所以有一套RGB相机动捕是很有必要的。但是市面上大多数RGB工业相机并没有配套的相机阵标定系统，本系列文章将阐述RGB相机动捕的整个系统">
+<meta property="og:description" content="@TOC RGB相机动捕系列：相机标定（三.一、暴力重建）一、概述之前一篇文章中写了一篇 RGB相机动捕系列：相机标定（三.一、暴力重建），其中 2.3中提到了红点三维重建，本篇将详细介绍一下红点重建的具体过程。 二、暴力匹配2.1相机匹配遍历所有相机，对相机进行两两相互匹配。由于已经对相机进行标定，可根据相机参数求出两相机的交会角。去除交会角过小和过大的匹配对。因为当交会角过小时，会导致重建深度">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="http://example.com/2025/02/07/RGB%E7%9B%B8%E6%9C%BA%E5%8A%A8%E6%8D%95%E7%B3%BB%E5%88%97%EF%BC%9A%E7%9B%B8%E6%9C%BA%E6%A0%87%E5%AE%9A%EF%BC%88%E4%B8%80%E3%80%81%E7%89%B9%E5%BE%81%E6%8F%90%E5%8F%96%EF%BC%89/1.png">
-<meta property="article:published_time" content="2025-02-07T13:40:26.997Z">
-<meta property="article:modified_time" content="2024-01-05T12:00:09.885Z">
+<meta property="article:published_time" content="2025-02-07T14:01:11.972Z">
+<meta property="article:modified_time" content="2024-02-19T12:35:48.182Z">
 <meta property="article:author" content="sunTFly">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="http://example.com/2025/02/07/RGB%E7%9B%B8%E6%9C%BA%E5%8A%A8%E6%8D%95%E7%B3%BB%E5%88%97%EF%BC%9A%E7%9B%B8%E6%9C%BA%E6%A0%87%E5%AE%9A%EF%BC%88%E4%B8%80%E3%80%81%E7%89%B9%E5%BE%81%E6%8F%90%E5%8F%96%EF%BC%89/1.png">
   
   
   
@@ -238,7 +236,7 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2025-02-07 21:40" pubdate>
+        <time datetime="2025-02-07 22:01" pubdate>
           2025年2月7日 晚上
         </time>
       </span>
@@ -250,7 +248,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          920 字
+          415 字
         
       </span>
     
@@ -261,7 +259,7 @@
         
         
         
-          8 分钟
+          4 分钟
         
       </span>
     
@@ -311,21 +309,12 @@
             
               <div class="markdown-body">
                 
-                <p><strong>RGB相机动捕系列：相机标定（一、特征提取）<br>一、概述</strong></p>
-<p>在动捕行业中，动捕系统一般采用红外相机捕捉演员身上的mark红外反光点，如vicon、OptiTrack等相机，相机厂商会有配对的相机标定系统。但是红外光学动捕有时会有一定的局限性，比如对于手指的捕捉效果很差，所以有一套RGB相机动捕是很有必要的。但是市面上大多数RGB工业相机并没有配套的相机阵标定系统，本系列文章将阐述RGB相机动捕的整个系统，包括相机标定、相机配准、RGB相机身体动捕、RGB相机手指动捕。本文讲述RGB相机标定中的特征提取方法。</p>
-<h1 id="二、相机标定"><a href="#二、相机标定" class="headerlink" title="二、相机标定"></a><strong>二、相机标定</strong></h1><h2 id="2-1、传统标定方法"><a href="#2-1、传统标定方法" class="headerlink" title="2.1、传统标定方法"></a><strong>2.1、传统标定方法</strong></h2><p>1、使用棋盘标定板进行标定，该方法首先对单个相机的内参进行标定，再对相机组的外参求解，使用该方法只能每次两两相机进行标定， 一般动捕室相机非常多，各相机之间的相对位姿关系也较为复杂，使用该方法需要消耗 大量人力物力，且该方法算法时间长，不利于使用。</p>
-<p>2、使用显著标志物进行标定，该方法在场景中放置显著标志物，通过提取标志物的特征点进行匹配，实际使用中需要设计多个不同的标志物，标志物设计较为困难，特征提取受噪声影响较大，且标志物的放置需要有一定规则，需要保证同一标志物至少两相机可见，对于非专业人员操作不太友好。</p>
-<h2 id="2-2、使用的标定方法"><a href="#2-2、使用的标定方法" class="headerlink" title="2.2、使用的标定方法"></a><strong>2.2、使用的标定方法</strong></h2><p>设计一个顶端使用 LED 红点光源的标定杆。标定时只需要人手持标定杆在动捕室进行挥动，相机通过波形发生器进行同步，通过算法分析实时提取出点光源在各个相机中的帧号和坐标，提取完成后再进行匹配关联，几何验证，最后进行全局优化，即可将相机内参外参一起标定完成，整个标定过程只需要几分钟就能完成大型动捕室相机阵列的高精度标定。</p>
-<h2 id="2-3、特征提取"><a href="#2-3、特征提取" class="headerlink" title="2.3、特征提取"></a><strong>2.3、特征提取</strong></h2><p>该方法通过 LED 红灯作为标定杆，标定杆如下图所示：</p>
-<img src="/2025/02/07/RGB%E7%9B%B8%E6%9C%BA%E5%8A%A8%E6%8D%95%E7%B3%BB%E5%88%97%EF%BC%9A%E7%9B%B8%E6%9C%BA%E6%A0%87%E5%AE%9A%EF%BC%88%E4%B8%80%E3%80%81%E7%89%B9%E5%BE%81%E6%8F%90%E5%8F%96%EF%BC%89/1.png" srcset="/img/loading.gif" lazyload class="">
-<p>由操作人员手持标定杆在动捕室运动（运动规则是让尽可能多的点均匀的落在不同 相机上，这点很容易做到），通过红点提取算法计算出每帧图像中红点在各相机中的坐标，具体的红点检测算法如下： 特征提取：算法采用自定义特征：红率∙灰度，对于图像中的每个 RGB 像素值，特征 F 的计算公式为：</p>
-<p>F&#x3D;reluR-G+relu(R-B)R+G+B+ε∙(0.3R+0.59G+0.11B)              （1）</p>
-<p>其中𝜺是一个极小值，避免除0。 通过该自定义特征，能够很好的将红点特征提取出来，并且对于噪声也有很好的过滤。特征提取完成之后，通过 DOG（高斯函数的差分）算子对特征进一步处理，提取出点位置，图像中的高斯核函数 G 如下：</p>
-<p>G（x,y,σ）&#x3D;12πσ2e(-x2+y22σ2)                                 （2）</p>
-<p>其中𝝈是方差，代表斑点的尺度。 高斯差分结果 D 的计算公式为：</p>
-<p>D（x,y,σ）&#x3D;G（x,y,σ+δ）-G（x,y,σ-δ）*F(x,y)                （3）</p>
-<p>其中 G 为公式（2）中的高斯核函数，δ是一个极小量，用于构建尺度差分，在实际使用中取10−1，*是卷积运算，F 为公式（1）中的特征图。最后通过阈值判断当差分结果大于阈值时认为该点是红点.公式如下所示：</p>
-<p>R&#x3D;0,  &amp;D（x,y,σ）&lt;threshold1,  &amp;D（x,y,σ）≥threshold                             （4） </p>
+                <p>@<a href="RGB%E7%9B%B8%E6%9C%BA%E5%8A%A8%E6%8D%95%E7%B3%BB%E5%88%97%EF%BC%9A%E7%9B%B8%E6%9C%BA%E6%A0%87%E5%AE%9A%EF%BC%88%E4%B8%89.%E4%B8%80%E3%80%81%E6%9A%B4%E5%8A%9B%E9%87%8D%E5%BB%BA%EF%BC%89">TOC</a></p>
+<h1 id="RGB相机动捕系列：相机标定（三-一、暴力重建）"><a href="#RGB相机动捕系列：相机标定（三-一、暴力重建）" class="headerlink" title="RGB相机动捕系列：相机标定（三.一、暴力重建）"></a>RGB相机动捕系列：相机标定（三.一、暴力重建）</h1><h2 id="一、概述"><a href="#一、概述" class="headerlink" title="一、概述"></a>一、概述</h2><p>之前一篇文章中写了一篇 <a target="_blank" rel="noopener" href="https://suntfly.github.io/2024/01/22/RGB%E7%9B%B8%E6%9C%BA%E5%8A%A8%E6%8D%95%E7%B3%BB%E5%88%97%EF%BC%9A%E7%9B%B8%E6%9C%BA%E6%A0%87%E5%AE%9A%EF%BC%88%E4%B8%89%E3%80%81%E7%9B%B8%E6%9C%BA%E9%98%B5%E9%85%8D%E5%87%86%EF%BC%89/">RGB相机动捕系列：相机标定（三.一、暴力重建）</a>，其中 2.3中提到了红点三维重建，本篇将详细介绍一下红点重建的具体过程。</p>
+<h2 id="二、暴力匹配"><a href="#二、暴力匹配" class="headerlink" title="二、暴力匹配"></a>二、暴力匹配</h2><h3 id="2-1相机匹配"><a href="#2-1相机匹配" class="headerlink" title="2.1相机匹配"></a>2.1相机匹配</h3><p>遍历所有相机，对相机进行两两相互匹配。由于已经对相机进行标定，可根据相机参数求出两相机的交会角。去除交会角过小和过大的匹配对。因为当交会角过小时，会导致重建深度的精度不够，微小的视察会产生较大的深度歧义。当交会角过大时，重建时相邻像素之间视差值过大，导致相邻像素可能被错误的匹配。</p>
+<h3 id="2-2红点数据暴力匹配"><a href="#2-2红点数据暴力匹配" class="headerlink" title="2.2红点数据暴力匹配"></a>2.2红点数据暴力匹配</h3><p>根据相机参数计算出基础矩阵F，根据极线关系 l&#x3D;F*m，其中l为极线，F为基础矩阵，m为坐标点。可计算第一张影像上的点到极线的几何距离。当距离小于阈值的时候则添加匹配点对。</p>
+<h3 id="2-3重建3D"><a href="#2-3重建3D" class="headerlink" title="2.3重建3D"></a>2.3重建3D</h3><p>完成匹配对之后，通过三角测量法重建出3D点，并通过计算重投影误差去除误差较大的点数据。</p>
+<h2 id="三、融合3D"><a href="#三、融合3D" class="headerlink" title="三、融合3D"></a>三、融合3D</h2><h3 id="3-1通过2D-3D关系进行融合"><a href="#3-1通过2D-3D关系进行融合" class="headerlink" title="3.1通过2D-3D关系进行融合"></a>3.1通过2D-3D关系进行融合</h3><p>通过上述步骤可重建出粗略的3D点，现在利用2D点和3D点的关系对数据进行融合。将所有共同2D点的生成的3D数据进行线性融合，并计算重投影误差的最大值，如果最大值小于阈值则融合3D。</p>
 
                 
               </div>
@@ -344,7 +333,7 @@
   <div class="license-box my-3">
     <div class="license-title">
       <div></div>
-      <div>http://example.com/2025/02/07/RGB相机动捕系列：相机标定（一、特征提取）/</div>
+      <div>http://example.com/2025/02/07/相机标定（三.一、暴力重建)/</div>
     </div>
     <div class="license-meta">
       
@@ -388,18 +377,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2025/02/07/RGB%E7%9B%B8%E6%9C%BA%E5%8A%A8%E6%8D%95%E7%B3%BB%E5%88%97%EF%BC%9A%E7%9B%B8%E6%9C%BA%E6%A0%87%E5%AE%9A%EF%BC%88%E4%B8%89%E3%80%81%E7%9B%B8%E6%9C%BA%E9%98%B5%E9%85%8D%E5%87%86%EF%BC%89/" title="">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile"></span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2022/06/10/TensorRT&amp;CUDA/" title="TensorRT+CUDA加速人体关键点检测">
-                        <span class="hidden-mobile">TensorRT+CUDA加速人体关键点检测</span>
+                      <a href="/2025/02/07/RGB%E7%9B%B8%E6%9C%BA%E5%8A%A8%E6%8D%95%E7%B3%BB%E5%88%97%EF%BC%9A%E7%9B%B8%E6%9C%BA%E6%A0%87%E5%AE%9A%EF%BC%88%E4%BA%8C%E3%80%81%E6%A0%87%E5%AE%9A%E8%AE%A1%E7%AE%97%EF%BC%89%20/" title="">
+                        <span class="hidden-mobile"></span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
