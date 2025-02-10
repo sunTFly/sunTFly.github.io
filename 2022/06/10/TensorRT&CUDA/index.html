@@ -35,7 +35,7 @@
 <meta property="og:image" content="http://example.com/2022/06/10/TensorRT&CUDA/10.png">
 <meta property="og:image" content="http://example.com/2022/06/10/TensorRT&CUDA/11.png">
 <meta property="article:published_time" content="2022-06-10T08:35:20.000Z">
-<meta property="article:modified_time" content="2025-02-10T13:19:17.511Z">
+<meta property="article:modified_time" content="2025-02-10T13:23:40.656Z">
 <meta property="article:author" content="sunTFly">
 <meta property="article:tag" content="TensorRT CUDA">
 <meta name="twitter:card" content="summary_large_image">
@@ -361,7 +361,7 @@
 
 <p>CUDA编程是一个异构模型，不能单独在GPU中运行，必须在和CPU协同工作，在CUDA中有host（CPU及其内存）和device（GPU及其内存）两个重要概念，前面介绍了CPU和GPU的异同，所以对于较多逻辑判断、分支跳转时使用CPU，需要处理大量简单重复的数据使用GPU，并通过PCIe总线进行通信。以处理关键点heatmap为例，第一步需要将heatmap缩放到输入尺寸，具体流程：（1）、得到tensorRT推理之后的数据，由于tensorRT推理后的数据本身就存在显存中，所以不需要再重新复制，直接可以将数据指针传入到处理函数中；（2）、传入之后根据缩放图像大小开辟等量的数据，在cuda中使用&lt;&lt;&lt;grid,block&gt;&gt;&gt;配置线程数。（3）、每个线程单独处理每个像素值计算出当前位置缩放的值，使程序在逻辑上处于并行状态。<br>上面步骤中grid表示线程块数，block表示每个线程块内的线程数，所以总大小为grid*block个线程， 之所以说在逻辑上是并行的，是由于GPU和CPU类似，多线程如果没有多核支持，在物理层上无法实现并行。但GPU有很多CUDA核心，GPU硬件的一个核心组件是SM(流式多处理器)，SM的核心组件包括CUDA核心、共享内存、寄存器等，SM可以并行的执行数百个线程。所以，上述流程被执行时，grid中的线程块被分配到SM上，SM中以线程束作为基本执行单元，目前所以GPU中线程束大小都是32，所以物理上并行的最大线程数为32个线程。<br>Heatmap经过缩放，非极大值抑制等一系列处理最终输出得到关键点精确坐标，对比CUDA编程和CPU编程，在CPU（i7 3.2GHz）上处理整个过程消耗25毫秒，在CUDA（1080Ti显卡）中处理消耗2.3毫秒,提升超过了10倍。</p>
 <p>注。<a href="#fn1">1</a></p>
-<p>本文仅供学习参考，未经运行，拒绝转载或者用作他用。</p>
+<p>本文仅供学习参考，未经允许，拒绝转载或者用作他用。</p>
 <hr>
 <ol>
 <li>参考连接<br><a target="_blank" rel="noopener" href="https://developer.nvidia.com/zh-cn/tensorrt">https://developer.nvidia.com/zh-cn/tensorrt</a><br><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/102457223">https://zhuanlan.zhihu.com/p/102457223</a><br><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/69042249">https://zhuanlan.zhihu.com/p/69042249</a><br><a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/371663018">https://zhuanlan.zhihu.com/p/371663018</a> <a href="#fnref1">↩︎</a>## 目标</li>
