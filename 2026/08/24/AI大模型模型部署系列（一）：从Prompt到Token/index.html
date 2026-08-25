@@ -16,16 +16,16 @@
   <meta name="author" content="sunTFly">
   <meta name="keywords" content="">
   
-    <meta name="description" content="最近开始系统学习大模型的本地推理和 AI Agent。我的主要开发语言是 C++，之前做过 TensorRT 模型部署、CUDA 预后处理和后处理，因此这次不准备只停留在“把模型运行起来”，而是希望逐步理解推理框架内部的数据流、运行状态和性能来源。 长期目标是实现一个“模型部署加速智能助手”：输入一个 Python 推理项目，自动分析模型、选择部署后端、生成 C++ 工程，并完成精度验证和性能测试">
+    <meta name="description" content="将大模型接入 C++ 应用时，“模型能够运行”只是部署链路的起点。要进一步分析推理性能、显存占用和生成行为，需要先明确输入数据如何进入模型，以及 Model、Context、Batch、Sampler 和 KV Cache 分别承担什么职责。 本文以 llama.cpp 的最小示例 examples&#x2F;simple&#x2F;simple.cpp 为入口，从工程调用链的角度拆解一段 Prompt 生成 Tok">
 <meta property="og:type" content="article">
-<meta property="og:title" content="AI 模型部署学习系列（一）：从 Prompt 到 Token，理解 llama.cpp 最小推理闭环">
-<meta property="og:url" content="https://suntfly.github.io/2026/08/24/AI%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E5%AD%A6%E4%B9%A0%EF%BC%88%E4%B8%80%EF%BC%89%EF%BC%9A%E4%BB%8EPrompt%E5%88%B0Token/index.html">
+<meta property="og:title" content="AI 大模型模型部署系列（一）：从 Prompt 到 Token，理解 llama.cpp 最小推理">
+<meta property="og:url" content="https://suntfly.github.io/2026/08/24/AI%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E7%B3%BB%E5%88%97%EF%BC%88%E4%B8%80%EF%BC%89%EF%BC%9A%E4%BB%8EPrompt%E5%88%B0Token/index.html">
 <meta property="og:site_name" content="sunTFly HomePage">
-<meta property="og:description" content="最近开始系统学习大模型的本地推理和 AI Agent。我的主要开发语言是 C++，之前做过 TensorRT 模型部署、CUDA 预后处理和后处理，因此这次不准备只停留在“把模型运行起来”，而是希望逐步理解推理框架内部的数据流、运行状态和性能来源。 长期目标是实现一个“模型部署加速智能助手”：输入一个 Python 推理项目，自动分析模型、选择部署后端、生成 C++ 工程，并完成精度验证和性能测试">
+<meta property="og:description" content="将大模型接入 C++ 应用时，“模型能够运行”只是部署链路的起点。要进一步分析推理性能、显存占用和生成行为，需要先明确输入数据如何进入模型，以及 Model、Context、Batch、Sampler 和 KV Cache 分别承担什么职责。 本文以 llama.cpp 的最小示例 examples&#x2F;simple&#x2F;simple.cpp 为入口，从工程调用链的角度拆解一段 Prompt 生成 Tok">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://suntfly.github.io/2026/08/24/AI%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E5%AD%A6%E4%B9%A0%EF%BC%88%E4%B8%80%EF%BC%89%EF%BC%9A%E4%BB%8EPrompt%E5%88%B0Token/llama-simple-flow.svg">
+<meta property="og:image" content="https://suntfly.github.io/2026/08/24/AI%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E7%B3%BB%E5%88%97%EF%BC%88%E4%B8%80%EF%BC%89%EF%BC%9A%E4%BB%8EPrompt%E5%88%B0Token/llama-simple-flow.svg">
 <meta property="article:published_time" content="2026-08-24T20:00:00.000Z">
-<meta property="article:modified_time" content="2026-08-25T01:56:45.374Z">
+<meta property="article:modified_time" content="2026-08-25T02:37:57.335Z">
 <meta property="article:author" content="sunTFly">
 <meta property="article:tag" content="AI 模型部署">
 <meta property="article:tag" content="llama.cpp">
@@ -33,11 +33,11 @@
 <meta property="article:tag" content="C++">
 <meta property="article:tag" content="CUDA">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://suntfly.github.io/2026/08/24/AI%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E5%AD%A6%E4%B9%A0%EF%BC%88%E4%B8%80%EF%BC%89%EF%BC%9A%E4%BB%8EPrompt%E5%88%B0Token/llama-simple-flow.svg">
+<meta name="twitter:image" content="https://suntfly.github.io/2026/08/24/AI%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E7%B3%BB%E5%88%97%EF%BC%88%E4%B8%80%EF%BC%89%EF%BC%9A%E4%BB%8EPrompt%E5%88%B0Token/llama-simple-flow.svg">
   
   
   
-  <title>AI 模型部署学习系列（一）：从 Prompt 到 Token，理解 llama.cpp 最小推理闭环 - sunTFly HomePage</title>
+  <title>AI 大模型模型部署系列（一）：从 Prompt 到 Token，理解 llama.cpp 最小推理 - sunTFly HomePage</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -232,7 +232,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="AI 模型部署学习系列（一）：从 Prompt 到 Token，理解 llama.cpp 最小推理闭环"></span>
+            <span id="subtitle" data-typed-text="AI 大模型模型部署系列（一）：从 Prompt 到 Token，理解 llama.cpp 最小推理"></span>
           
         </div>
 
@@ -266,7 +266,7 @@
         
         
         
-          16 分钟
+          15 分钟
         
       </span>
     
@@ -311,14 +311,13 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">AI 模型部署学习系列（一）：从 Prompt 到 Token，理解 llama.cpp 最小推理闭环</h1>
+            <h1 id="seo-header">AI 大模型模型部署系列（一）：从 Prompt 到 Token，理解 llama.cpp 最小推理</h1>
             
             
               <div class="markdown-body">
                 
-                <p>最近开始系统学习大模型的本地推理和 AI Agent。我的主要开发语言是 C++，之前做过 TensorRT 模型部署、CUDA 预后处理和后处理，因此这次不准备只停留在“把模型运行起来”，而是希望逐步理解推理框架内部的数据流、运行状态和性能来源。</p>
-<p>长期目标是实现一个“模型部署加速智能助手”：输入一个 Python 推理项目，自动分析模型、选择部署后端、生成 C++ 工程，并完成精度验证和性能测试。llama.cpp 一方面可以作为本地 Agent 的推理引擎，另一方面也是学习模型加载、设备卸载、计算图和推理状态管理的合适项目。</p>
-<p>第一天先从最小示例 <code>examples/simple/simple.cpp</code> 开始，弄清楚一段 Prompt 是怎样变成输出 Token 的。</p>
+                <p>将大模型接入 C++ 应用时，“模型能够运行”只是部署链路的起点。要进一步分析推理性能、显存占用和生成行为，需要先明确输入数据如何进入模型，以及 Model、Context、Batch、Sampler 和 KV Cache 分别承担什么职责。</p>
+<p>本文以 llama.cpp 的最小示例 <code>examples/simple/simple.cpp</code> 为入口，从工程调用链的角度拆解一段 Prompt 生成 Token 的完整过程，重点分析 Tokenize、Decode、Sample 和 KV Cache 之间的数据关系，为后续进行模型集成、参数调优和性能优化建立基础。</p>
 <blockquote>
 <p>llama.cpp 的接口变化较快。本文对应本地版本 <code>b8870-82209efb7</code>，阅读其他版本源码时，函数名称和内部结构可能不同。</p>
 </blockquote>
@@ -354,8 +353,8 @@
 <td><code>examples/simple/simple.cpp</code></td>
 </tr>
 </tbody></table>
-<p>这次实验把模型路径、Prompt 和 GPU 层数直接写在测试代码中，目的是缩短调试路径，集中观察 Tokenize、Decode 和 Sample 的过程。后续做成长期维护的程序时，再将参数移入配置文件。</p>
-<h2 id="二、最小推理流程"><a href="#二、最小推理流程" class="headerlink" title="二、最小推理流程"></a>二、最小推理流程</h2><img src="/2026/08/24/AI%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E5%AD%A6%E4%B9%A0%EF%BC%88%E4%B8%80%EF%BC%89%EF%BC%9A%E4%BB%8EPrompt%E5%88%B0Token/llama-simple-flow.svg" srcset="/img/loading.gif" lazyload class="" title="llama.cpp 从 Prompt 到 Token 的最小推理流程">
+<p>本次验证把模型路径、Prompt 和 GPU 层数直接写在测试代码中，目的是缩短调试路径，集中观察 Tokenize、Decode 和 Sample 的过程。正式集成时，可以再将这些参数移入配置文件或上层调用接口。</p>
+<h2 id="二、最小推理流程"><a href="#二、最小推理流程" class="headerlink" title="二、最小推理流程"></a>二、最小推理流程</h2><img src="/2026/08/24/AI%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E7%B3%BB%E5%88%97%EF%BC%88%E4%B8%80%EF%BC%89%EF%BC%9A%E4%BB%8EPrompt%E5%88%B0Token/llama-simple-flow.svg" srcset="/img/loading.gif" lazyload class="" title="llama.cpp 从 Prompt 到 Token 的最小推理流程">
 
 <p>整个过程可以概括为：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs text">加载计算后端<br>→ 加载 GGUF 模型<br>→ 文本 Tokenize<br>→ 创建推理 Context<br>→ 创建 Sampler<br>→ 构造 Batch<br>→ llama_decode 计算 Logits<br>→ Sampler 选择 Token<br>→ Token 转换为文本 Piece<br>→ 将新 Token 放回 Batch，继续生成<br></code></pre></td></tr></table></figure>
@@ -469,18 +468,18 @@
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">Prompt Eval：多个已知 Token，可以批量并行<br>Generation：下一个 Token 依赖上一个结果，只能逐步推进<br></code></pre></td></tr></table></figure>
 
 <p>因此 Prompt Eval 的 Token&#x2F;s 通常明显高于 Generation Token&#x2F;s。不过这不是绝对规律，具体结果仍然取决于模型、上下文长度、Batch、量化方式和硬件。</p>
-<h2 id="七、第一天的收获"><a href="#七、第一天的收获" class="headerlink" title="七、第一天的收获"></a>七、第一天的收获</h2><p>通过阅读并修改 <code>simple.cpp</code>，目前建立了下面这条基本推理链路：</p>
+<h2 id="七、工程结论与后续验证"><a href="#七、工程结论与后续验证" class="headerlink" title="七、工程结论与后续验证"></a>七、工程结论与后续验证</h2><p>通过阅读和修改 <code>simple.cpp</code>，可以确定 llama.cpp 最小推理链路中各对象的职责：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">Model 提供权重和词表<br>Context 保存推理运行状态<br>Batch 描述本次输入<br>Decode 执行模型并产生 Logits<br>Sampler 选择下一个 Token<br>KV Cache 复用历史 Attention 状态<br></code></pre></td></tr></table></figure>
 
-<p>第一天没有继续深挖 GGML 计算图，也没有进行完整的 CPU&#x2F;GPU 性能对比。现阶段更重要的是先准确理解对象职责和数据流，性能测试将在后续学习模型卸载、Batch 和部署参数时单独进行。</p>
-<p>下一步计划修改 Sampler，对比 Greedy、Temperature、Top-K 和 Top-P，观察不同采样策略如何改变本地模型的输出。</p>
+<p>本文聚焦接口职责和数据流，没有继续展开 GGML 计算图，也没有进行完整的 CPU&#x2F;GPU 性能对比。性能测试需要在固定模型、量化格式、上下文长度和 Batch 参数后单独进行，否则对比结果缺少可复现性。</p>
+<p>后续将对比 Greedy、Temperature、Top-K 和 Top-P 等采样策略，验证不同参数对输出稳定性、生成质量和推理结果可复现性的影响。</p>
 <h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
 <li><a target="_blank" rel="noopener" href="https://github.com/ggml-org/llama.cpp">llama.cpp 仓库</a></li>
 <li><a target="_blank" rel="noopener" href="https://github.com/ggml-org/llama.cpp/blob/82209efb7/examples/simple/simple.cpp"><code>examples/simple/simple.cpp</code></a></li>
 <li><a target="_blank" rel="noopener" href="https://github.com/ggml-org/llama.cpp/blob/82209efb7/include/llama.h"><code>include/llama.h</code></a></li>
 </ul>
 <blockquote>
-<p>本文基于个人源码阅读和本地实验记录整理，使用 AI 辅助检查文章结构与技术表述，文中的代码和结论均由本人复核。</p>
+<p>本文基于源码阅读和本地实验记录整理，使用 AI 辅助检查文章结构与技术表述，文中的代码和结论均由本人复核。</p>
 </blockquote>
 
                 
@@ -535,8 +534,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>AI 模型部署学习系列（一）：从 Prompt 到 Token，理解 llama.cpp 最小推理闭环</div>
-      <div>https://suntfly.github.io/2026/08/24/AI模型部署学习（一）：从Prompt到Token/</div>
+      <div>AI 大模型模型部署系列（一）：从 Prompt 到 Token，理解 llama.cpp 最小推理</div>
+      <div>https://suntfly.github.io/2026/08/24/AI大模型模型部署系列（一）：从Prompt到Token/</div>
     </div>
     <div class="license-meta">
       

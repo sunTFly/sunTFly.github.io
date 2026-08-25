@@ -255,15 +255,15 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
-        <a href="/2026/08/24/AI%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E5%AD%A6%E4%B9%A0%EF%BC%88%E4%B8%80%EF%BC%89%EF%BC%9A%E4%BB%8EPrompt%E5%88%B0Token/" target="_self">
-          AI 模型部署学习系列（一）：从 Prompt 到 Token，理解 llama.cpp 最小推理闭环
+        <a href="/2026/08/24/AI%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E7%B3%BB%E5%88%97%EF%BC%88%E4%B8%80%EF%BC%89%EF%BC%9A%E4%BB%8EPrompt%E5%88%B0Token/" target="_self">
+          AI 大模型模型部署系列（一）：从 Prompt 到 Token，理解 llama.cpp 最小推理
         </a>
       </h2>
 
       
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/24/AI%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E5%AD%A6%E4%B9%A0%EF%BC%88%E4%B8%80%EF%BC%89%EF%BC%9A%E4%BB%8EPrompt%E5%88%B0Token/" target="_self">
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/24/AI%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E7%B3%BB%E5%88%97%EF%BC%88%E4%B8%80%EF%BC%89%EF%BC%9A%E4%BB%8EPrompt%E5%88%B0Token/" target="_self">
         <div>
-          最近开始系统学习大模型的本地推理和 AI Agent。我的主要开发语言是 C++，之前做过 TensorRT 模型部署、CUDA 预后处理和后处理，因此这次不准备只停留在“把模型运行起来”，而是希望逐步理解推理框架内部的数据流、运行状态和性能来源。 长期目标是实现一个“模型部署加速智能助手”：输入一个 Python 推理项目，自动分析模型、选择部署后端、生成 C++ 工程，并完成精度验证和性能测试
+          将大模型接入 C++ 应用时，“模型能够运行”只是部署链路的起点。要进一步分析推理性能、显存占用和生成行为，需要先明确输入数据如何进入模型，以及 Model、Context、Batch、Sampler 和 KV Cache 分别承担什么职责。 本文以 llama.cpp 的最小示例 examples/simple/simple.cpp 为入口，从工程调用链的角度拆解一段 Prompt 生成 Tok
         </div>
       </a>
 
