@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="720" viewBox="0 0 1600 720" role="img" aria-labelledby="title desc">
+  <title id="title">llama.cpp 从 Prompt 到 Token 的最小推理流程</title>
+  <desc id="desc">GGUF 模型和 Prompt 分别经过模型加载与 Tokenize，在 Context 和 Batch 中通过 Decode 生成 Logits，由 Sampler 选择 Token 并转换为文本，KV Cache 保存历史状态供下一轮生成复用。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0 L12 6 L0 12 Z" fill="#4b5563"/>
+    </marker>
+    <style>
+      .title { font: 700 34px "Microsoft YaHei", "Noto Sans SC", sans-serif; fill: #17202a; }
+      .label { font: 700 22px "Microsoft YaHei", "Noto Sans SC", sans-serif; fill: #17202a; }
+      .sub { font: 400 17px "Microsoft YaHei", "Noto Sans SC", sans-serif; fill: #4b5563; }
+      .arrow { fill: none; stroke: #4b5563; stroke-width: 3; marker-end: url(#arrow); }
+      .dash { fill: none; stroke: #667085; stroke-width: 3; stroke-dasharray: 9 8; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1600" height="720" fill="#f7f8fa"/>
+  <text class="title" x="800" y="58" text-anchor="middle">llama.cpp：从 Prompt 到下一个 Token</text>
+
+  <rect x="70" y="110" width="250" height="112" rx="8" fill="#e9f2ff" stroke="#3578c6" stroke-width="2"/>
+  <text class="label" x="195" y="153" text-anchor="middle">GGUF 模型</text>
+  <text class="sub" x="195" y="186" text-anchor="middle">权重 · 词表 · 元数据</text>
+
+  <rect x="430" y="110" width="250" height="112" rx="8" fill="#e9f2ff" stroke="#3578c6" stroke-width="2"/>
+  <text class="label" x="555" y="153" text-anchor="middle">llama_model</text>
+  <text class="sub" x="555" y="186" text-anchor="middle">可复用静态模型数据</text>
+
+  <rect x="790" y="110" width="250" height="112" rx="8" fill="#e8f6ee" stroke="#32835a" stroke-width="2"/>
+  <text class="label" x="915" y="153" text-anchor="middle">llama_context</text>
+  <text class="sub" x="915" y="186" text-anchor="middle">运行状态 · KV Cache</text>
+
+  <path class="arrow" d="M320 166 H430"/>
+  <path class="arrow" d="M680 166 H790"/>
+
+  <rect x="70" y="326" width="190" height="112" rx="8" fill="#fff3df" stroke="#c87b22" stroke-width="2"/>
+  <text class="label" x="165" y="369" text-anchor="middle">Prompt</text>
+  <text class="sub" x="165" y="402" text-anchor="middle">UTF-8 文本</text>
+
+  <rect x="330" y="326" width="210" height="112" rx="8" fill="#fff3df" stroke="#c87b22" stroke-width="2"/>
+  <text class="label" x="435" y="369" text-anchor="middle">Tokenize</text>
+  <text class="sub" x="435" y="402" text-anchor="middle">文本 → Token ID</text>
+
+  <rect x="610" y="326" width="190" height="112" rx="8" fill="#fff3df" stroke="#c87b22" stroke-width="2"/>
+  <text class="label" x="705" y="369" text-anchor="middle">Batch</text>
+  <text class="sub" x="705" y="402" text-anchor="middle">本次模型输入</text>
+
+  <rect x="870" y="326" width="190" height="112" rx="8" fill="#f0ebfa" stroke="#7653a6" stroke-width="2"/>
+  <text class="label" x="965" y="369" text-anchor="middle">Decode</text>
+  <text class="sub" x="965" y="402" text-anchor="middle">执行计算图</text>
+
+  <rect x="1130" y="326" width="170" height="112" rx="8" fill="#f0ebfa" stroke="#7653a6" stroke-width="2"/>
+  <text class="label" x="1215" y="369" text-anchor="middle">Logits</text>
+  <text class="sub" x="1215" y="402" text-anchor="middle">候选 Token 分数</text>
+
+  <rect x="1370" y="326" width="170" height="112" rx="8" fill="#fcebec" stroke="#b94a55" stroke-width="2"/>
+  <text class="label" x="1455" y="369" text-anchor="middle">Sampler</text>
+  <text class="sub" x="1455" y="402" text-anchor="middle">选择下一个 Token</text>
+
+  <path class="arrow" d="M260 382 H330"/>
+  <path class="arrow" d="M540 382 H610"/>
+  <path class="arrow" d="M800 382 H870"/>
+  <path class="arrow" d="M1060 382 H1130"/>
+  <path class="arrow" d="M1300 382 H1370"/>
+  <path class="arrow" d="M915 222 V326"/>
+
+  <rect x="1180" y="536" width="360" height="112" rx="8" fill="#e8f6ee" stroke="#32835a" stroke-width="2"/>
+  <text class="label" x="1360" y="579" text-anchor="middle">Token ID → 文本 Piece</text>
+  <text class="sub" x="1360" y="612" text-anchor="middle">新 Token 进入下一轮 Batch</text>
+
+  <path class="arrow" d="M1455 438 V536"/>
+  <path class="dash" d="M1180 592 H965 V438"/>
+
+  <rect x="615" y="536" width="360" height="112" rx="8" fill="#e8f6ee" stroke="#32835a" stroke-width="2"/>
+  <text class="label" x="795" y="579" text-anchor="middle">KV Cache</text>
+  <text class="sub" x="795" y="612" text-anchor="middle">缓存历史 Key / Value，供后续复用</text>
+  <path class="dash" d="M965 438 V490 H795 V536"/>
+  <path class="dash" d="M795 536 V490 H915 V222"/>
+</svg>

@@ -1,0 +1,914 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="sunTFly">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="最近开始系统学习大模型的本地推理和 AI Agent。我的主要开发语言是 C++，之前做过 TensorRT 模型部署、CUDA 预后处理和后处理，因此这次不准备只停留在“把模型运行起来”，而是希望逐步理解推理框架内部的数据流、运行状态和性能来源。 长期目标是实现一个“模型部署加速智能助手”：输入一个 Python 推理项目，自动分析模型、选择部署后端、生成 C++ 工程，并完成精度验证和性能测试">
+<meta property="og:type" content="article">
+<meta property="og:title" content="AI 模型部署学习系列（一）：从 Prompt 到 Token，理解 llama.cpp 最小推理闭环">
+<meta property="og:url" content="https://suntfly.github.io/2026/08/24/AI%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E5%AD%A6%E4%B9%A0%EF%BC%88%E4%B8%80%EF%BC%89%EF%BC%9A%E4%BB%8EPrompt%E5%88%B0Token/index.html">
+<meta property="og:site_name" content="sunTFly HomePage">
+<meta property="og:description" content="最近开始系统学习大模型的本地推理和 AI Agent。我的主要开发语言是 C++，之前做过 TensorRT 模型部署、CUDA 预后处理和后处理，因此这次不准备只停留在“把模型运行起来”，而是希望逐步理解推理框架内部的数据流、运行状态和性能来源。 长期目标是实现一个“模型部署加速智能助手”：输入一个 Python 推理项目，自动分析模型、选择部署后端、生成 C++ 工程，并完成精度验证和性能测试">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://suntfly.github.io/2026/08/24/AI%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E5%AD%A6%E4%B9%A0%EF%BC%88%E4%B8%80%EF%BC%89%EF%BC%9A%E4%BB%8EPrompt%E5%88%B0Token/llama-simple-flow.svg">
+<meta property="article:published_time" content="2026-08-24T20:00:00.000Z">
+<meta property="article:modified_time" content="2026-08-25T01:56:45.374Z">
+<meta property="article:author" content="sunTFly">
+<meta property="article:tag" content="AI 模型部署">
+<meta property="article:tag" content="llama.cpp">
+<meta property="article:tag" content="LLM">
+<meta property="article:tag" content="C++">
+<meta property="article:tag" content="CUDA">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://suntfly.github.io/2026/08/24/AI%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E5%AD%A6%E4%B9%A0%EF%BC%88%E4%B8%80%EF%BC%89%EF%BC%9A%E4%BB%8EPrompt%E5%88%B0Token/llama-simple-flow.svg">
+  
+  
+  
+  <title>AI 模型部署学习系列（一）：从 Prompt 到 Token，理解 llama.cpp 最小推理闭环 - sunTFly HomePage</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"suntfly.github.io","root":"/","version":"1.9.6","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":"xiu9pUYn8hcFaBvHjX2ivu1A-gzGzoHsz","app_key":"JPAYhB5tzfOEYJoA1jVZb4fw","server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+    <!-- Google tag (gtag.js) -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript("https://www.googletagmanager.com/gtag/js?id=", function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag() {
+            dataLayer.push(arguments);
+          }
+          gtag('js', new Date());
+          gtag('config', '');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>sunTFly&#39;s HomePage</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="AI 模型部署学习系列（一）：从 Prompt 到 Token，理解 llama.cpp 最小推理闭环"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-08-24 20:00" pubdate>
+          2026年8月24日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.8k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          16 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> 次
+        </span>
+        
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">AI 模型部署学习系列（一）：从 Prompt 到 Token，理解 llama.cpp 最小推理闭环</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>最近开始系统学习大模型的本地推理和 AI Agent。我的主要开发语言是 C++，之前做过 TensorRT 模型部署、CUDA 预后处理和后处理，因此这次不准备只停留在“把模型运行起来”，而是希望逐步理解推理框架内部的数据流、运行状态和性能来源。</p>
+<p>长期目标是实现一个“模型部署加速智能助手”：输入一个 Python 推理项目，自动分析模型、选择部署后端、生成 C++ 工程，并完成精度验证和性能测试。llama.cpp 一方面可以作为本地 Agent 的推理引擎，另一方面也是学习模型加载、设备卸载、计算图和推理状态管理的合适项目。</p>
+<p>第一天先从最小示例 <code>examples/simple/simple.cpp</code> 开始，弄清楚一段 Prompt 是怎样变成输出 Token 的。</p>
+<blockquote>
+<p>llama.cpp 的接口变化较快。本文对应本地版本 <code>b8870-82209efb7</code>，阅读其他版本源码时，函数名称和内部结构可能不同。</p>
+</blockquote>
+<h2 id="一、实验环境"><a href="#一、实验环境" class="headerlink" title="一、实验环境"></a>一、实验环境</h2><table>
+<thead>
+<tr>
+<th>项目</th>
+<th>配置</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>操作系统</td>
+<td>Windows</td>
+</tr>
+<tr>
+<td>编译工具</td>
+<td>Visual Studio 2022、CMake</td>
+</tr>
+<tr>
+<td>GPU</td>
+<td>NVIDIA GeForce GTX 1080 Ti，11 GB</td>
+</tr>
+<tr>
+<td>llama.cpp</td>
+<td>CUDA 后端构建</td>
+</tr>
+<tr>
+<td>模型</td>
+<td>Qwen2.5-1.5B-Instruct-Q3_K_M GGUF</td>
+</tr>
+<tr>
+<td>示例程序</td>
+<td><code>examples/simple/simple.cpp</code></td>
+</tr>
+</tbody></table>
+<p>这次实验把模型路径、Prompt 和 GPU 层数直接写在测试代码中，目的是缩短调试路径，集中观察 Tokenize、Decode 和 Sample 的过程。后续做成长期维护的程序时，再将参数移入配置文件。</p>
+<h2 id="二、最小推理流程"><a href="#二、最小推理流程" class="headerlink" title="二、最小推理流程"></a>二、最小推理流程</h2><img src="/2026/08/24/AI%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E5%AD%A6%E4%B9%A0%EF%BC%88%E4%B8%80%EF%BC%89%EF%BC%9A%E4%BB%8EPrompt%E5%88%B0Token/llama-simple-flow.svg" srcset="/img/loading.gif" lazyload class="" title="llama.cpp 从 Prompt 到 Token 的最小推理流程">
+
+<p>整个过程可以概括为：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs text">加载计算后端<br>→ 加载 GGUF 模型<br>→ 文本 Tokenize<br>→ 创建推理 Context<br>→ 创建 Sampler<br>→ 构造 Batch<br>→ llama_decode 计算 Logits<br>→ Sampler 选择 Token<br>→ Token 转换为文本 Piece<br>→ 将新 Token 放回 Batch，继续生成<br></code></pre></td></tr></table></figure>
+
+<p>这个流程中有四个需要先建立直觉的核心对象。</p>
+<h3 id="1-llama-model：可复用的静态模型数据"><a href="#1-llama-model：可复用的静态模型数据" class="headerlink" title="1. llama_model：可复用的静态模型数据"></a>1. llama_model：可复用的静态模型数据</h3><p><code>llama_model</code> 主要保存模型权重、词表、超参数和 GGUF 元数据。加载时，llama.cpp 会根据 <code>n_gpu_layers</code>、可用设备和后端能力，将不同权重 Tensor 分配到 CPU 或 GPU。</p>
+<p>它不保存某一轮对话的历史状态，因此同一个 Model 可以被多个推理 Context 复用。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs cpp">llama_model_params model_params = <span class="hljs-built_in">llama_model_default_params</span>();<br>model_params.n_gpu_layers = <span class="hljs-number">99</span>;<br><br>llama_model * model =<br>    <span class="hljs-built_in">llama_model_load_from_file</span>(model_path.<span class="hljs-built_in">c_str</span>(), model_params);<br></code></pre></td></tr></table></figure>
+
+<h3 id="2-llama-context：推理运行时"><a href="#2-llama-context：推理运行时" class="headerlink" title="2. llama_context：推理运行时"></a>2. llama_context：推理运行时</h3><p><code>llama_context</code> 依赖已经加载的 Model，保存一次推理运行所需的 Context 容量、计算缓冲区、Logits、KV Cache 和后端调度状态。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs cpp">llama_context_params ctx_params = <span class="hljs-built_in">llama_context_default_params</span>();<br>ctx_params.n_ctx   = n_prompt + n_predict - <span class="hljs-number">1</span>;<br>ctx_params.n_batch = n_prompt;<br><br>llama_context * ctx = <span class="hljs-built_in">llama_init_from_model</span>(model, ctx_params);<br></code></pre></td></tr></table></figure>
+
+<p>这里两个参数容易混淆：</p>
+<ul>
+<li><code>n_ctx</code>：一个 Sequence 最多能够容纳的上下文 Token 数。</li>
+<li><code>n_batch</code>：一次 <code>llama_decode()</code> 允许提交的最大逻辑 Token 数。</li>
+<li><code>batch.n_tokens</code>：当前这一次 Batch 实际包含的 Token 数。</li>
+</ul>
+<p><code>simple.cpp</code> 将 <code>n_ctx</code> 设置为 <code>n_prompt + n_predict - 1</code>。最后一个生成 Token 不需要再次送入模型，因为程序已经不再需要用它预测下一个 Token。</p>
+<h3 id="3-llama-batch：本次送入模型的数据"><a href="#3-llama-batch：本次送入模型的数据" class="headerlink" title="3. llama_batch：本次送入模型的数据"></a>3. llama_batch：本次送入模型的数据</h3><p>Prompt 已经全部确定，因此第一次可以把多个 Prompt Token 一起组成 Batch：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs cpp">llama_batch batch =<br>    <span class="hljs-built_in">llama_batch_get_one</span>(prompt_tokens.<span class="hljs-built_in">data</span>(), prompt_tokens.<span class="hljs-built_in">size</span>());<br></code></pre></td></tr></table></figure>
+
+<p>进入生成阶段后，下一个 Token 依赖上一个 Token 的输出，未来 Token 尚未确定，所以示例程序每轮通常只把一个新 Token 放回 Batch。</p>
+<h3 id="4-llama-sampler：从-Logits-选择-Token"><a href="#4-llama-sampler：从-Logits-选择-Token" class="headerlink" title="4. llama_sampler：从 Logits 选择 Token"></a>4. llama_sampler：从 Logits 选择 Token</h3><p>模型输出的不是文字，也不是最终 Token，而是词表中候选 Token 的 Logits。Sampler 根据采样策略从中选择下一个 Token。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs cpp">llama_sampler * smpl = <span class="hljs-built_in">llama_sampler_chain_init</span>(sparams);<br><span class="hljs-built_in">llama_sampler_chain_add</span>(smpl, <span class="hljs-built_in">llama_sampler_init_greedy</span>());<br></code></pre></td></tr></table></figure>
+
+<p>本例使用 Greedy Sampler，始终选择 Logit 最大的 Token。实际对话程序还可以使用 Temperature、Top-K、Top-P 等策略，使输出具有不同程度的随机性。</p>
+<h2 id="三、从文本到-Token"><a href="#三、从文本到-Token" class="headerlink" title="三、从文本到 Token"></a>三、从文本到 Token</h2><p>Tokenize 使用了两次调用：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs cpp"><span class="hljs-type">const</span> <span class="hljs-type">int</span> n_prompt = -<span class="hljs-built_in">llama_tokenize</span>(<br>    vocab, prompt.<span class="hljs-built_in">c_str</span>(), prompt.<span class="hljs-built_in">size</span>(),<br>    <span class="hljs-literal">nullptr</span>, <span class="hljs-number">0</span>, <span class="hljs-literal">true</span>, <span class="hljs-literal">true</span>);<br><br><span class="hljs-function">std::vector&lt;llama_token&gt; <span class="hljs-title">prompt_tokens</span><span class="hljs-params">(n_prompt)</span></span>;<br><br><span class="hljs-built_in">llama_tokenize</span>(<br>    vocab, prompt.<span class="hljs-built_in">c_str</span>(), prompt.<span class="hljs-built_in">size</span>(),<br>    prompt_tokens.<span class="hljs-built_in">data</span>(), prompt_tokens.<span class="hljs-built_in">size</span>(),<br>    <span class="hljs-literal">true</span>, <span class="hljs-literal">true</span>);<br></code></pre></td></tr></table></figure>
+
+<p>第一次传入空指针和容量 0，利用“输出缓冲区不足时返回所需 Token 数量的负值”得到真实容量。取反后分配 <code>vector</code>，第二次调用再完成真正的 Tokenize。</p>
+<p>测试 Prompt 为：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">你是一个智能编程助手，能解决一些代码问题。你的回答是专业的。<br></code></pre></td></tr></table></figure>
+
+<p>部分输出如下：</p>
+<table>
+<thead>
+<tr>
+<th align="right">Token ID</th>
+<th>Piece</th>
+<th align="right">UTF-8 字节数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="right">56568</td>
+<td>你</td>
+<td align="right">3</td>
+</tr>
+<tr>
+<td align="right">101909</td>
+<td>是一个</td>
+<td align="right">9</td>
+</tr>
+<tr>
+<td align="right">100168</td>
+<td>智能</td>
+<td align="right">6</td>
+</tr>
+<tr>
+<td align="right">110569</td>
+<td>编程</td>
+<td align="right">6</td>
+</tr>
+<tr>
+<td align="right">110498</td>
+<td>助手</td>
+<td align="right">6</td>
+</tr>
+<tr>
+<td align="right">3837</td>
+<td>，</td>
+<td align="right">3</td>
+</tr>
+<tr>
+<td align="right">46100</td>
+<td>代码</td>
+<td align="right">6</td>
+</tr>
+<tr>
+<td align="right">1773</td>
+<td>。</td>
+<td align="right">3</td>
+</tr>
+</tbody></table>
+<p>从结果可以看到，Token 并不等于单个汉字。一个 Token 可以对应一个字、多个字组成的词、标点或其他字节片段。</p>
+<p><code>llama_token_to_piece()</code> 返回的长度是 Piece 的 UTF-8 字节数，不是字符数。例如“是一个”包含三个常用汉字，在 UTF-8 中占 9 字节。</p>
+<p>Token ID 与 Piece 的映射由当前模型词表决定。本例中两个句号都被分成 Token 1773，但不能据此认为同一个汉字在所有上下文中都会拥有独立且相同的 Token ID，因为 Tokenizer 可能将它与相邻文本合并为更长的 Token。</p>
+<h2 id="四、llama-decode-到底输出什么"><a href="#四、llama-decode-到底输出什么" class="headerlink" title="四、llama_decode 到底输出什么"></a>四、llama_decode 到底输出什么</h2><p>生成循环中的关键代码是：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs cpp"><span class="hljs-keyword">if</span> (<span class="hljs-built_in">llama_decode</span>(ctx, batch) != <span class="hljs-number">0</span>) &#123;<br>    <span class="hljs-comment">// 处理错误</span><br>&#125;<br><br>llama_token new_token_id = <span class="hljs-built_in">llama_sampler_sample</span>(smpl, ctx, <span class="hljs-number">-1</span>);<br></code></pre></td></tr></table></figure>
+
+<p>需要注意，<code>llama_decode()</code> 的返回值不是 Token ID，而是执行状态码。成功执行后，它主要完成三件事：</p>
+<ol>
+<li>处理当前 Batch，执行模型计算图。</li>
+<li>更新 Context 内的推理 Memory，例如 KV Cache。</li>
+<li>将需要的 Logits 保存到 Context，供 Sampler 使用。</li>
+</ol>
+<p><code>llama_sampler_sample()</code> 再从 Context 读取最后一个输出位置的 Logits，根据采样链选出下一个 Token。最后调用 <code>llama_token_to_piece()</code>，才能得到可以显示的文本片段。</p>
+<p>所以更准确的链路是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">Batch<br>→ llama_decode<br>→ Context 中的 Logits<br>→ llama_sampler_sample<br>→ Token ID<br>→ llama_token_to_piece<br>→ UTF-8 文本<br></code></pre></td></tr></table></figure>
+
+<h2 id="五、为什么需要-KV-Cache"><a href="#五、为什么需要-KV-Cache" class="headerlink" title="五、为什么需要 KV Cache"></a>五、为什么需要 KV Cache</h2><p>在 Transformer 的每一层 Self-Attention 中，每个 Token 都会产生 Query、Key 和 Value。生成新 Token 时，新 Query 仍然需要与全部历史 Key 计算注意力，并使用对应的历史 Value 得到注意力输出。</p>
+<p>历史 Token 的 Key 和 Value 一旦计算完成就不会改变，因此可以缓存起来：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs text">Prompt 阶段：<br>计算 K1...Kn、V1...Vn，并写入 KV Cache<br><br>生成阶段：<br>计算新 Token 的 Q、K、V<br>Qnew 与缓存的历史 K 计算 Attention<br>使用历史 V 得到输出<br>把 Knew、Vnew 追加到 KV Cache<br></code></pre></td></tr></table></figure>
+
+<p>如果没有 KV Cache，每生成一个 Token，都需要重新处理整个历史前缀。使用 KV Cache 后，只计算新位置对应的网络过程，复用历史 K&#x2F;V。</p>
+<p>KV Cache 没有消除新 Query 对全部历史 K&#x2F;V 的注意力计算，而且它会随着上下文增长占用更多内存；它是在计算量与内存占用之间做出的关键交换。</p>
+<p>在当前版本中，<code>simple.cpp</code> 不直接管理 KV Cache。<code>llama_context</code> 创建时会调用 <code>model.create_memory()</code>；对于本次使用的 Qwen2.5，最终会创建标准的 <code>llama_kv_cache</code>。这些细节被封装在 Context 内部，因此最小示例只需要持续调用 <code>llama_decode()</code>。</p>
+<h2 id="六、Prompt-Eval-为什么通常更快"><a href="#六、Prompt-Eval-为什么通常更快" class="headerlink" title="六、Prompt Eval 为什么通常更快"></a>六、Prompt Eval 为什么通常更快</h2><p>推理日志通常会分别给出 Prompt Eval 和 Generation 的速度。</p>
+<p>Prompt Eval 也叫 Prefill。Prompt 中所有 Token 已经确定，可以组成一个较大的 Batch，通过矩阵乘矩阵等操作并行计算，GPU 的计算单元更容易得到充分利用。</p>
+<p>Generation 是自回归过程：必须先生成第一个 Token，才能把它作为输入预测第二个 Token。每一步通常只处理一个新 Token，存在严格的前后依赖，计算更接近矩阵乘向量，也更容易受到显存带宽和调度开销限制。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">Prompt Eval：多个已知 Token，可以批量并行<br>Generation：下一个 Token 依赖上一个结果，只能逐步推进<br></code></pre></td></tr></table></figure>
+
+<p>因此 Prompt Eval 的 Token&#x2F;s 通常明显高于 Generation Token&#x2F;s。不过这不是绝对规律，具体结果仍然取决于模型、上下文长度、Batch、量化方式和硬件。</p>
+<h2 id="七、第一天的收获"><a href="#七、第一天的收获" class="headerlink" title="七、第一天的收获"></a>七、第一天的收获</h2><p>通过阅读并修改 <code>simple.cpp</code>，目前建立了下面这条基本推理链路：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">Model 提供权重和词表<br>Context 保存推理运行状态<br>Batch 描述本次输入<br>Decode 执行模型并产生 Logits<br>Sampler 选择下一个 Token<br>KV Cache 复用历史 Attention 状态<br></code></pre></td></tr></table></figure>
+
+<p>第一天没有继续深挖 GGML 计算图，也没有进行完整的 CPU&#x2F;GPU 性能对比。现阶段更重要的是先准确理解对象职责和数据流，性能测试将在后续学习模型卸载、Batch 和部署参数时单独进行。</p>
+<p>下一步计划修改 Sampler，对比 Greedy、Temperature、Top-K 和 Top-P，观察不同采样策略如何改变本地模型的输出。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/ggml-org/llama.cpp">llama.cpp 仓库</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/ggml-org/llama.cpp/blob/82209efb7/examples/simple/simple.cpp"><code>examples/simple/simple.cpp</code></a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/ggml-org/llama.cpp/blob/82209efb7/include/llama.h"><code>include/llama.h</code></a></li>
+</ul>
+<blockquote>
+<p>本文基于个人源码阅读和本地实验记录整理，使用 AI 辅助检查文章结构与技术表述，文中的代码和结论均由本人复核。</p>
+</blockquote>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI-%E5%B7%A5%E7%A8%8B%E5%8C%96/" class="category-chain-item">AI 工程化</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI-%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2/" class="print-no-link">#AI 模型部署</a>
+      
+        <a href="/tags/llama-cpp/" class="print-no-link">#llama.cpp</a>
+      
+        <a href="/tags/LLM/" class="print-no-link">#LLM</a>
+      
+        <a href="/tags/C/" class="print-no-link">#C++</a>
+      
+        <a href="/tags/CUDA/" class="print-no-link">#CUDA</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>AI 模型部署学习系列（一）：从 Prompt 到 Token，理解 llama.cpp 最小推理闭环</div>
+      <div>https://suntfly.github.io/2026/08/24/AI模型部署学习（一）：从Prompt到Token/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>sunTFly</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年8月24日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2025/02/24/CUDA%E7%B3%BB%E5%88%97%E4%BA%8C%E3%80%81CUDA%E5%AE%9E%E7%8E%B0%E5%9B%BE%E5%83%8F%E6%A0%87%E5%87%86%E5%8C%96/" title="CUDA系列二、CUDA图像标准化">
+                        <span class="hidden-mobile">CUDA系列二、CUDA图像标准化</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="valine"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#valine', function() {
+      Fluid.utils.createScript('https://lib.baomitu.com/valine/1.5.1/Valine.min.js', function() {
+        var options = Object.assign(
+          {"appId":"xiu9pUYn8hcFaBvHjX2ivu1A-gzGzoHsz","appKey":"JPAYhB5tzfOEYJoA1jVZb4fw","path":"window.location.pathname","placeholder":null,"avatar":"retro","meta":["nick","mail","link"],"requiredFields":[],"pageSize":10,"lang":"zh-CN","highlight":false,"recordIP":false,"serverURLs":"","emojiCDN":null,"emojiMaps":null,"enableQQ":false},
+          {
+            el: "#valine",
+            path: window.location.pathname
+          }
+        )
+        new Valine(options);
+        Fluid.utils.waitElementVisible('#valine .vcontent', () => {
+          var imgSelector = '#valine .vcontent img:not(.vemoji)';
+          Fluid.plugins.imageCaption(imgSelector);
+          Fluid.plugins.fancyBox(imgSelector);
+        })
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="leancloud-site-pv-container" style="display: none">
+        总访问量 
+        <span id="leancloud-site-pv"></span>
+         次
+      </span>
+    
+    
+      <span id="leancloud-site-uv-container" style="display: none">
+        总访客数 
+        <span id="leancloud-site-uv"></span>
+         人
+      </span>
+    
+    
+
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
