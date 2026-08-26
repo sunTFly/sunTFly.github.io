@@ -255,6 +255,75 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/08/26/AI%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E7%B3%BB%E5%88%97%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9A%E4%BB%8ELogits%E5%88%B0Token/" target="_self">
+          AI 大模型模型部署系列（二）：从 Logits 到 Token，理解 llama.cpp 采样链
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/26/AI%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E7%B3%BB%E5%88%97%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9A%E4%BB%8ELogits%E5%88%B0Token/" target="_self">
+        <div>
+          模型完成一次 Decode 后，会为词表中的每个候选 Token 输出一个 Logit。真正决定下一个 Token 的，并不是模型加载或 KV Cache，而是位于推理循环末端的 Sampler。 Sampler 看起来只是一次函数调用，内部却包含候选过滤、概率调整、随机选择和状态更新。本次继续以 examples/simple/simple.cpp 为入口，拆解 llama.cpp 的采样链，并
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-08-26 18:00" pubdate>
+              2026-08-26
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI-%E5%B7%A5%E7%A8%8B%E5%8C%96/" class="category-chain-item">AI 工程化</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI-%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2/">#AI 模型部署</a>
+            
+              <a href="/tags/llama-cpp/">#llama.cpp</a>
+            
+              <a href="/tags/LLM/">#LLM</a>
+            
+              <a href="/tags/C/">#C++</a>
+            
+              <a href="/tags/Sampling/">#Sampling</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/08/24/AI%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E7%B3%BB%E5%88%97%EF%BC%88%E4%B8%80%EF%BC%89%EF%BC%9A%E4%BB%8EPrompt%E5%88%B0Token/" target="_self">
           AI 大模型模型部署系列（一）：从 Prompt 到 Token，理解 llama.cpp 最小推理
         </a>
@@ -806,47 +875,13 @@
     </article>
   </div>
 
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2021/06/10/%E6%B5%8B%E8%AF%95%E6%96%87%E7%AB%A0/" target="_self">
-          测试文章
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2021/06/10/%E6%B5%8B%E8%AF%95%E6%96%87%E7%AB%A0/" target="_self">
-        <div>
-          这是一篇测试文章
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2021-06-10 16:35" pubdate>
-              2021-06-10
-            </time>
-          </div>
-        
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/Test/">#Test</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
 
 
+  <nav aria-label="navigation">
+    <span class="pagination" id="pagination">
+      <span class="page-number current">1</span><a class="page-number" href="/page/2/#board">2</a><a class="extend next" rel="next" href="/page/2/#board"><i class="iconfont icon-arrowright"></i></a>
+    </span>
+  </nav>
 
 
 
