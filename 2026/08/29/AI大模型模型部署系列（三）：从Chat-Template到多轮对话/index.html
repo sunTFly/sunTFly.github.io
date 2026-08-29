@@ -1,0 +1,884 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="sunTFly">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="在上一篇文章《AI 大模型模型部署系列（二）：从 Logits 到 Token，理解 llama.cpp 采样链》中，我们从 Logits 出发，验证了 Top-K、Top-P、Temperature、Seed 和最终选择器如何共同决定下一个 Token。 但是，能够连续生成 Token 还不等于能够正确对话。Instruct 模型需要知道哪段内容来自 System、哪段来自 User、什么时候轮">
+<meta property="og:type" content="article">
+<meta property="og:title" content="AI 大模型模型部署系列（三）：从 Chat Template 到多轮对话，理解 KV Cache 复用">
+<meta property="og:url" content="https://suntfly.github.io/2026/08/29/AI%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E7%B3%BB%E5%88%97%EF%BC%88%E4%B8%89%EF%BC%89%EF%BC%9A%E4%BB%8EChat-Template%E5%88%B0%E5%A4%9A%E8%BD%AE%E5%AF%B9%E8%AF%9D/index.html">
+<meta property="og:site_name" content="sunTFly HomePage">
+<meta property="og:description" content="在上一篇文章《AI 大模型模型部署系列（二）：从 Logits 到 Token，理解 llama.cpp 采样链》中，我们从 Logits 出发，验证了 Top-K、Top-P、Temperature、Seed 和最终选择器如何共同决定下一个 Token。 但是，能够连续生成 Token 还不等于能够正确对话。Instruct 模型需要知道哪段内容来自 System、哪段来自 User、什么时候轮">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-08-29T23:00:00.000Z">
+<meta property="article:modified_time" content="2026-08-29T15:19:42.697Z">
+<meta property="article:author" content="sunTFly">
+<meta property="article:tag" content="AI 模型部署">
+<meta property="article:tag" content="llama.cpp">
+<meta property="article:tag" content="LLM">
+<meta property="article:tag" content="C++">
+<meta property="article:tag" content="Chat Template">
+<meta property="article:tag" content="KV Cache">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+  
+  <title>AI 大模型模型部署系列（三）：从 Chat Template 到多轮对话，理解 KV Cache 复用 - sunTFly HomePage</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"suntfly.github.io","root":"/","version":"1.9.6","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":true,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":"xiu9pUYn8hcFaBvHjX2ivu1A-gzGzoHsz","app_key":"JPAYhB5tzfOEYJoA1jVZb4fw","server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+  
+
+  
+    <!-- Google tag (gtag.js) -->
+    <script async>
+      if (!Fluid.ctx.dnt) {
+        Fluid.utils.createScript("https://www.googletagmanager.com/gtag/js?id=", function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag() {
+            dataLayer.push(arguments);
+          }
+          gtag('js', new Date());
+          gtag('config', '');
+        });
+      }
+    </script>
+  
+
+  
+
+  
+
+  
+
+  
+    
+  
+
+
+
+  
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>sunTFly&#39;s HomePage</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="AI 大模型模型部署系列（三）：从 Chat Template 到多轮对话，理解 KV Cache 复用"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-08-29 23:00" pubdate>
+          2026年8月29日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.6k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          22 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="leancloud-page-views-container" class="post-meta" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="leancloud-page-views"></span> 次
+        </span>
+        
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">AI 大模型模型部署系列（三）：从 Chat Template 到多轮对话，理解 KV Cache 复用</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>在<a href="https://suntfly.github.io/2026/08/26/AI%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E7%B3%BB%E5%88%97%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9A%E4%BB%8ELogits%E5%88%B0Token/">上一篇文章《AI 大模型模型部署系列（二）：从 Logits 到 Token，理解 llama.cpp 采样链》</a>中，我们从 Logits 出发，验证了 Top-K、Top-P、Temperature、Seed 和最终选择器如何共同决定下一个 Token。</p>
+<p>但是，能够连续生成 Token 还不等于能够正确对话。Instruct 模型需要知道哪段内容来自 System、哪段来自 User、什么时候轮到 Assistant 回答；进入第二轮后，程序还需要让消息历史与 KV Cache 保持同步，避免重复计算已经处理过的 Token。</p>
+<p>本次以 <code>examples/simple-chat</code> 为入口，将单轮生成循环扩展为多轮对话程序，并重点处理三个问题：Chat Template 如何组织消息、第二轮为什么只 Decode 增量 Prompt、文本历史与 KV Cache 如何对应。</p>
+<blockquote>
+<p>llama.cpp 的接口变化较快。本文对应本地学习分支的基础版本 <code>bdbfb4c79</code>，其他版本的接口名称和实现细节可能不同。</p>
+</blockquote>
+<h2 id="一、从-Prompt-字符串到结构化消息"><a href="#一、从-Prompt-字符串到结构化消息" class="headerlink" title="一、从 Prompt 字符串到结构化消息"></a>一、从 Prompt 字符串到结构化消息</h2><p>普通补全接口接收一段字符串，而聊天程序维护的是一组有角色的消息：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs cpp"><span class="hljs-keyword">struct</span> <span class="hljs-title class_">llama_chat_message</span> &#123;<br>    <span class="hljs-type">const</span> <span class="hljs-type">char</span> * role;<br>    <span class="hljs-type">const</span> <span class="hljs-type">char</span> * content;<br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<p>一轮对话通常包含三类角色：</p>
+<ul>
+<li><code>system</code>：规定助手的身份、边界和整体行为。</li>
+<li><code>user</code>：用户本轮输入。</li>
+<li><code>assistant</code>：模型已经生成的历史回答。</li>
+</ul>
+<p>这些角色并不会直接送入 Transformer。它们首先经过模型自己的 Chat Template，被序列化为训练时使用的文本格式，然后再 Tokenize。</p>
+<p>以本次使用的 Qwen2.5 Instruct 模型为例：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">&lt;|im_start|&gt;system<br>你是一名专业的 C++ 开发助手。&lt;|im_end|&gt;<br>&lt;|im_start|&gt;user<br>记住数字9527&lt;|im_end|&gt;<br>&lt;|im_start|&gt;assistant<br></code></pre></td></tr></table></figure>
+
+<p>完整数据流是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs text">messages(role, content)<br>→ llama_chat_apply_template()<br>→ formatted string<br>→ llama_tokenize()<br>→ llama_decode()<br>→ KV Cache + Logits<br>→ Sampler<br>→ response tokens<br></code></pre></td></tr></table></figure>
+
+<p>因此，Chat Template 的输出仍然是字符串。它只负责把结构化消息转换成模型熟悉的格式，并不执行分词或推理。</p>
+<h2 id="二、add-ass-到底添加了什么"><a href="#二、add-ass-到底添加了什么" class="headerlink" title="二、add_ass 到底添加了什么"></a>二、<code>add_ass</code> 到底添加了什么</h2><p>生成前调用模板时使用 <code>add_ass = true</code>：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs cpp"><span class="hljs-built_in">llama_chat_apply_template</span>(<br>    chat_template,<br>    messages.<span class="hljs-built_in">data</span>(),<br>    messages.<span class="hljs-built_in">size</span>(),<br>    <span class="hljs-literal">true</span>,<br>    formatted.<span class="hljs-built_in">data</span>(),<br>    formatted.<span class="hljs-built_in">size</span>());<br></code></pre></td></tr></table></figure>
+
+<p>对于当前 Qwen 模板，它会在末尾补上：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">&lt;|im_start|&gt;assistant<br></code></pre></td></tr></table></figure>
+
+<p>这个标记的作用不是替模型生成一个回答，而是告诉模型：前面的 System 和 User 消息已经结束，接下来应该继续 Assistant 的内容。</p>
+<p>模型回答完成后，计算历史格式化长度时则使用 <code>add_ass = false</code>。此时 Assistant 消息已经在历史中，不应该再额外增加下一轮 Assistant 的起始标记，否则 <code>previous_length</code> 会多算一段尚未进入 KV Cache 的文本。</p>
+<h2 id="三、为什么-Instruct-模型不能只输入裸-Prompt"><a href="#三、为什么-Instruct-模型不能只输入裸-Prompt" class="headerlink" title="三、为什么 Instruct 模型不能只输入裸 Prompt"></a>三、为什么 Instruct 模型不能只输入裸 Prompt</h2><p>我使用同一条指令进行了对比：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">记住项目代号是 Falcon，不要解释。<br></code></pre></td></tr></table></figure>
+
+<p>直接把裸文本送入模型时，输出很快偏离指令，继续扩展出大量不需要的项目设计内容，最终耗尽 Context。</p>
+<p>加入 Chat Template 后，回答恢复为正常的对话形式：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">好的，我会记住项目代号是 Falcon。<br></code></pre></td></tr></table></figure>
+
+<p>第二轮询问“项目代号是什么？”，模型能够回答“Falcon”；第三轮要求定义 C++ <code>constexpr</code> 字符串，也能够沿用前文信息。</p>
+<p>原因不是 Chat Template 提升了模型能力，而是 Instruct 模型在训练和微调时已经学习了特定的消息边界与角色格式。缺少这些控制标记，相当于部署输入与训练分布不一致，模型无法可靠判断当前文本是指令、历史回答，还是需要继续补全的普通内容。</p>
+<h2 id="四、多轮对话为什么只-Decode-增量-Prompt"><a href="#四、多轮对话为什么只-Decode-增量-Prompt" class="headerlink" title="四、多轮对话为什么只 Decode 增量 Prompt"></a>四、多轮对话为什么只 Decode 增量 Prompt</h2><p>程序同时维护两份状态：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">消息历史：可读、可编辑的 role/content 文本<br>KV Cache：各层 Attention 已计算出的 Key/Value 张量<br></code></pre></td></tr></table></figure>
+
+<p>每次加入新的 User 消息后，程序先格式化完整消息历史，再通过上一次的格式化长度截取新增部分：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs cpp"><span class="hljs-function"><span class="hljs-type">const</span> std::string <span class="hljs-title">incremental_prompt</span><span class="hljs-params">(</span></span><br><span class="hljs-params"><span class="hljs-function">    formatted.begin() + previous_length,</span></span><br><span class="hljs-params"><span class="hljs-function">    formatted.begin() + formatted_length)</span></span>;<br></code></pre></td></tr></table></figure>
+
+<p>这里的 <code>previous_length</code> 是字符串的字节位置，而不是 Token 位置。原因很直接：<code>llama_chat_apply_template()</code> 的输入和输出都是字符数据，Tokenize 尚未发生。</p>
+<p>第一次输入时，KV Cache 为空，增量 Prompt 包含 System、User 和 Assistant 起始标记：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">完整 formatted 长度 : 127<br>previous_length      : 0<br>本轮增量 Prompt      : System + User + Assistant start<br>Prompt Token 数      : 23<br></code></pre></td></tr></table></figure>
+
+<p>第二次输入时，之前的消息已经完成 Decode，因此只需要处理新追加的 User 消息和新的 Assistant 起始标记：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">完整 formatted 长度 : 278<br>previous_length      : 212<br>本轮增量 Prompt      : User + Assistant start<br>Prompt Token 数      : 14<br></code></pre></td></tr></table></figure>
+
+<p>第二轮不能把完整历史再次追加给同一个 Context。KV Cache 已经占用了前面 Token 的位置，若把完整历史重新 Decode，它们会被当成新的 Token 继续追加，造成位置重复、上下文浪费，并使实际缓存序列与消息历史不再一一对应。</p>
+<p>当然，也可以清空 KV Cache 后重新 Decode 完整历史，但那会丢失复用带来的性能收益。</p>
+<h2 id="五、消息历史与-KV-Cache-不是同一种“记忆”"><a href="#五、消息历史与-KV-Cache-不是同一种“记忆”" class="headerlink" title="五、消息历史与 KV Cache 不是同一种“记忆”"></a>五、消息历史与 KV Cache 不是同一种“记忆”</h2><p>消息历史保存的是业务层数据，例如：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">system: 你是一名专业的 C++ 开发助手。<br>user: 记住项目代号是 Falcon。<br>assistant: 好的，我会记住项目代号是 Falcon。<br></code></pre></td></tr></table></figure>
+
+<p>它可以被保存到文件、裁剪、摘要、搜索或重新组织。</p>
+<p>KV Cache 保存的不是文本、Token ID，也不是事实数据库，而是 Transformer 每层对已处理 Token 计算出的 Key 和 Value 张量。它的价值是避免每生成一个新 Token 都重新计算完整前缀。</p>
+<p>两者的关系可以概括为：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">消息历史 --Chat Template/Tokenize/Decode--&gt; KV Cache<br>    ↑                                      |<br>    └--------- Assistant 文本解码 ----------┘<br></code></pre></td></tr></table></figure>
+
+<p>消息历史负责“以后还能怎样组织这段会话”，KV Cache 负责“当前 Context 中哪些 Attention 计算可以直接复用”。</p>
+<h2 id="六、采样-Token-何时进入-KV-Cache"><a href="#六、采样-Token-何时进入-KV-Cache" class="headerlink" title="六、采样 Token 何时进入 KV Cache"></a>六、采样 Token 何时进入 KV Cache</h2><p>Sampler 选出 Token 时，KV Cache 还没有这个 Token 的 K&#x2F;V。它要先作为下一批输入，再执行一次 Decode：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs cpp">llama_token token = <span class="hljs-built_in">llama_sampler_sample</span>(sampler, ctx, <span class="hljs-number">-1</span>);<br>llama_batch batch = <span class="hljs-built_in">llama_batch_get_one</span>(&amp;token, <span class="hljs-number">1</span>);<br><span class="hljs-built_in">llama_decode</span>(ctx, batch);<br></code></pre></td></tr></table></figure>
+
+<p>也就是说：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">第 N 次 Decode 产生 Logits<br>→ Sampler 选出 Token N<br>→ 第 N+1 次 Decode 处理 Token N<br>→ Token N 的 K/V 进入 KV Cache<br></code></pre></td></tr></table></figure>
+
+<p>这也引出一个容易忽略的同步问题。模型采样到 EOG 后，如果立即 <code>break</code>，结束 Token 就没有经过 Decode；但 Chat Template 格式化历史时已经把结束标记算入 <code>previous_length</code>。下一轮再按这个长度截取，文本历史会比 KV Cache 多一个结束 Token。</p>
+<p>本次代码让 EOG 也完成一次 Decode，再结束本轮生成：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs cpp"><span class="hljs-keyword">if</span> (<span class="hljs-built_in">llama_vocab_is_eog</span>(vocab, token)) &#123;<br>    llama_batch eog_batch = <span class="hljs-built_in">llama_batch_get_one</span>(&amp;token, <span class="hljs-number">1</span>);<br>    <span class="hljs-keyword">if</span> (!<span class="hljs-built_in">decode_batch</span>(eog_batch)) &#123;<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;<br>    &#125;<br>    <span class="hljs-keyword">break</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>这样 <code>previous_length</code>、已 Decode 的 Token 序列和 KV Cache 占用位置可以保持一致。</p>
+<h2 id="七、System-Prompt-改变了什么"><a href="#七、System-Prompt-改变了什么" class="headerlink" title="七、System Prompt 改变了什么"></a>七、System Prompt 改变了什么</h2><p>本次对照了两种 Chat Template 输入：</p>
+<ul>
+<li>只有 User&#x2F;Assistant：模型能够正确记住 Falcon，并完成连续问答。</li>
+<li>增加 C++ 开发助手的 System Prompt：记忆结果相同，但后续代码回答更主动地采用 C++ 语境。</li>
+</ul>
+<p>System Prompt 不是独立的权限系统，也不会在模型外部强制执行规则。它仍然只是上下文中的一段高优先级消息，通过训练阶段学到的角色行为影响后续 Token 概率。</p>
+<p>因此，对比实验应该关注它对回答风格、约束遵循和任务稳定性的影响，而不能把一次输出差异直接解释成模型能力变化。</p>
+<h2 id="八、C-消息生命周期修正"><a href="#八、C-消息生命周期修正" class="headerlink" title="八、C++ 消息生命周期修正"></a>八、C++ 消息生命周期修正</h2><p><code>llama_chat_message</code> 只保存两个 <code>const char *</code>，不拥有内存。示例中 <code>role</code> 使用字符串字面量，不需要释放；<code>content</code> 通过 <code>strdup()</code> 创建，所以原示例只释放 <code>content</code>。</p>
+<p>为了避免手动 <code>strdup/free</code> 和异常路径泄漏，本次用 <code>std::string</code> 保存真实消息，再在调用模板前创建临时视图：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs cpp"><span class="hljs-keyword">struct</span> <span class="hljs-title class_">ChatMessage</span> &#123;<br>    std::string role;<br>    std::string content;<br>&#125;;<br><br><span class="hljs-function"><span class="hljs-type">static</span> std::vector&lt;llama_chat_message&gt; <span class="hljs-title">to_llama_messages</span><span class="hljs-params">(</span></span><br><span class="hljs-params"><span class="hljs-function">        <span class="hljs-type">const</span> std::vector&lt;ChatMessage&gt; &amp; messages)</span> </span>&#123;<br>    std::vector&lt;llama_chat_message&gt; result;<br>    result.<span class="hljs-built_in">reserve</span>(messages.<span class="hljs-built_in">size</span>());<br><br>    <span class="hljs-keyword">for</span> (<span class="hljs-type">const</span> <span class="hljs-keyword">auto</span> &amp; message : messages) &#123;<br>        result.<span class="hljs-built_in">push_back</span>(&#123;<br>            message.role.<span class="hljs-built_in">c_str</span>(),<br>            message.content.<span class="hljs-built_in">c_str</span>()<br>        &#125;);<br>    &#125;<br>    <span class="hljs-keyword">return</span> result;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>这里需要保证临时视图只在原始 <code>messages</code> 未发生增删和扩容时使用。当前代码每次修改消息后都会重新创建视图，因此指针生命周期是明确的。</p>
+<p>同时补齐了 Model、Context、Sampler 和 Chat Template 创建失败的返回路径，Context 超限也改为返回错误并统一释放资源，不再通过 <code>exit()</code> 跳过清理。</p>
+<h2 id="九、一次跨机器构建暴露出的-CMake-问题"><a href="#九、一次跨机器构建暴露出的-CMake-问题" class="headerlink" title="九、一次跨机器构建暴露出的 CMake 问题"></a>九、一次跨机器构建暴露出的 CMake 问题</h2><p>家里电脑曾经可以在 Visual Studio 中编译 Day3 代码，但把源码复制回公司电脑后出现链接错误。根因是家里的生成工程中手动加入了 <code>day03_chat.cpp</code>，而对应关系没有写回 <code>CMakeLists.txt</code>：</p>
+<figure class="highlight cmake"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs cmake"><span class="hljs-comment"># 修复前：只编译入口文件</span><br><span class="hljs-keyword">add_executable</span>(<span class="hljs-variable">$&#123;TARGET&#125;</span> simple-chat.cpp)<br><br><span class="hljs-comment"># 修复后：Day3 实现也属于目标源码</span><br><span class="hljs-keyword">add_executable</span>(<span class="hljs-variable">$&#123;TARGET&#125;</span> simple-chat.cpp day03_chat.cpp)<br></code></pre></td></tr></table></figure>
+
+<p><code>.sln</code> 和 <code>.vcxproj</code> 是 CMake 针对当前机器、Visual Studio、CUDA Toolkit 和 GPU 架构生成的构建产物。它们不应该承担跨机器同步源码关系的职责。</p>
+<p>正确的同步边界是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">Git 同步：源码、头文件、CMakeLists.txt、文档<br>本机生成：build_gpu、.sln、.vcxproj、DLL、EXE<br>单独传输：GGUF 模型等大文件<br></code></pre></td></tr></table></figure>
+
+<p>因此，家里的 RTX 4070 SUPER 使用计算能力 8.9 重新配置，公司电脑则按本机显卡架构重新配置。源码保持一致，构建目录和二进制不要求一致。</p>
+<p>Windows 下还统一处理了两个工程细节：</p>
+<figure class="highlight cmake"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs cmake"><span class="hljs-keyword">target_compile_options</span>(<span class="hljs-variable">$&#123;TARGET&#125;</span> PRIVATE<br>    $&lt;$&lt;CXX_COMPILER_ID:MSVC&gt;:/utf-<span class="hljs-number">8</span>&gt;)<br><span class="hljs-keyword">set_property</span>(<span class="hljs-variable">$&#123;TARGET&#125;</span> PROPERTY<br>    VS_DEBUGGER_WORKING_DIRECTORY <span class="hljs-string">&quot;$&#123;CMAKE_SOURCE_DIR&#125;&quot;</span>)<br></code></pre></td></tr></table></figure>
+
+<ul>
+<li><code>/utf-8</code> 配合 <code>SetConsoleOutputCP(CP_UTF8)</code>，避免中文源码和控制台输出乱码。</li>
+<li>Visual Studio 调试工作目录固定到仓库根目录，使 <code>models/...gguf</code> 相对路径在不同电脑上保持一致。</li>
+</ul>
+<h2 id="十、Context-满了以后怎么办"><a href="#十、Context-满了以后怎么办" class="headerlink" title="十、Context 满了以后怎么办"></a>十、Context 满了以后怎么办</h2><p>KV Cache 容量由 Context 大小限制，不能无限追加。当前学习程序检测到：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">used_positions + incoming_tokens &gt; llama_n_ctx(ctx)<br></code></pre></td></tr></table></figure>
+
+<p>就结束会话并返回错误。这是正确的保护行为，但还不是完整的长对话方案。</p>
+<p>实际系统通常组合使用以下策略：</p>
+<ol>
+<li>丢弃较早的普通对话，只保留 System Prompt 和最近若干轮。</li>
+<li>将较早内容压缩成摘要，再作为新消息放回 Context。</li>
+<li>把用户资料和历史事实保存在数据库或向量库中，按当前问题检索相关片段。</li>
+<li>清理或移动相应的 KV Cache 区间，使缓存与重新组织后的 Token 序列重新对齐。</li>
+</ol>
+<p>所谓“长期记忆”主要是模型外部的工程系统。模型在一次推理中只能直接利用当前 Context 内的信息，KV Cache 提升的是这段 Context 的增量计算效率，并不会把聊天内容永久写入模型权重。</p>
+<h2 id="十一、本次结论"><a href="#十一、本次结论" class="headerlink" title="十一、本次结论"></a>十一、本次结论</h2><p>本次从单轮生成推进到了可连续交互的本地对话程序，并完成了几项关键验证：</p>
+<ol>
+<li>Chat Template 将结构化角色消息转换为模型训练时熟悉的文本格式，之后才进入 Tokenize 和 Decode。</li>
+<li><code>add_ass = true</code> 用于生成前追加 Assistant 起始标记；回答进入历史后，用 <code>false</code> 计算已完成历史长度。</li>
+<li><code>previous_length</code> 是格式化字符串的字节偏移，第二轮只截取并 Decode 新增文本。</li>
+<li>消息历史是可管理的业务文本，KV Cache 是 Attention 的中间计算状态，两者必须保持 Token 序列一致。</li>
+<li>采样出的 Token 要到下一次 Decode 才进入 KV Cache，结束 Token 也需要考虑同步。</li>
+<li><code>std::string</code> 可以明确消息内存所有权，避免 <code>strdup/free</code> 带来的泄漏风险。</li>
+<li>跨机器应同步源码和 CMake 配置，在各自环境中重新生成构建工程与 CUDA 二进制。</li>
+</ol>
+<p>到这里，模型已经可以在同一个 Context 中完成多轮对话。下一步将继续研究结构化输出和 Context 管理，把“会聊天”推进到“能以稳定格式执行任务”，为后续本地 Agent 和模型部署自动化打基础。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
+<li><a href="https://suntfly.github.io/2026/08/26/AI%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E7%B3%BB%E5%88%97%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9A%E4%BB%8ELogits%E5%88%B0Token/">上一篇：《AI 大模型模型部署系列（二）：从 Logits 到 Token，理解 llama.cpp 采样链》</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/ggml-org/llama.cpp">llama.cpp 仓库</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/ggml-org/llama.cpp/blob/bdbfb4c79/examples/simple-chat/simple-chat.cpp"><code>examples/simple-chat/simple-chat.cpp</code></a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/ggml-org/llama.cpp/blob/bdbfb4c79/include/llama.h"><code>include/llama.h</code></a></li>
+</ul>
+<blockquote>
+<p>本文基于源码阅读和本地实验记录整理，使用 AI 辅助检查文章结构与技术表述，文中的代码、实验结果和结论均由本人复核。</p>
+</blockquote>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI-%E5%B7%A5%E7%A8%8B%E5%8C%96/" class="category-chain-item">AI 工程化</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI-%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2/" class="print-no-link">#AI 模型部署</a>
+      
+        <a href="/tags/llama-cpp/" class="print-no-link">#llama.cpp</a>
+      
+        <a href="/tags/LLM/" class="print-no-link">#LLM</a>
+      
+        <a href="/tags/C/" class="print-no-link">#C++</a>
+      
+        <a href="/tags/Chat-Template/" class="print-no-link">#Chat Template</a>
+      
+        <a href="/tags/KV-Cache/" class="print-no-link">#KV Cache</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>AI 大模型模型部署系列（三）：从 Chat Template 到多轮对话，理解 KV Cache 复用</div>
+      <div>https://suntfly.github.io/2026/08/29/AI大模型模型部署系列（三）：从Chat-Template到多轮对话/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>sunTFly</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年8月29日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/08/26/AI%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2%E7%B3%BB%E5%88%97%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9A%E4%BB%8ELogits%E5%88%B0Token/" title="AI 大模型模型部署系列（二）：从 Logits 到 Token，理解 llama.cpp 采样链">
+                        <span class="hidden-mobile">AI 大模型模型部署系列（二）：从 Logits 到 Token，理解 llama.cpp 采样链</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+  
+  
+    <article id="comments" lazyload>
+      
+  <div id="valine"></div>
+  <script type="text/javascript">
+    Fluid.utils.loadComments('#valine', function() {
+      Fluid.utils.createScript('https://lib.baomitu.com/valine/1.5.1/Valine.min.js', function() {
+        var options = Object.assign(
+          {"appId":"xiu9pUYn8hcFaBvHjX2ivu1A-gzGzoHsz","appKey":"JPAYhB5tzfOEYJoA1jVZb4fw","path":"window.location.pathname","placeholder":null,"avatar":"retro","meta":["nick","mail","link"],"requiredFields":[],"pageSize":10,"lang":"zh-CN","highlight":false,"recordIP":false,"serverURLs":"","emojiCDN":null,"emojiMaps":null,"enableQQ":false},
+          {
+            el: "#valine",
+            path: window.location.pathname
+          }
+        )
+        new Valine(options);
+        Fluid.utils.waitElementVisible('#valine .vcontent', () => {
+          var imgSelector = '#valine .vcontent img:not(.vemoji)';
+          Fluid.plugins.imageCaption(imgSelector);
+          Fluid.plugins.fancyBox(imgSelector);
+        })
+      });
+    });
+  </script>
+  <noscript>Please enable JavaScript to view the comments</noscript>
+
+
+    </article>
+  
+
+
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="leancloud-site-pv-container" style="display: none">
+        总访问量 
+        <span id="leancloud-site-pv"></span>
+         次
+      </span>
+    
+    
+      <span id="leancloud-site-uv-container" style="display: none">
+        总访客数 
+        <span id="leancloud-site-uv"></span>
+         人
+      </span>
+    
+    
+
+  
+</div>
+
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script defer src="/js/leancloud.js" ></script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
